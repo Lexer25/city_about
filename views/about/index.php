@@ -23,31 +23,8 @@
             </tr>
         </table>
 
-        <h4>Текущая версия системы</h4>
-        <p class="lead">Версия: <strong><?php echo htmlspecialchars($current_version); ?></strong></p>
-
-       
-
-        <h4>История версий</h4>
-        <?php if (empty($version_history)): ?>
-            <p>История версий пока не доступна.</p>
-        <?php else: ?>
-            <div class="list-group">
-                <?php foreach ($version_history as $version_info): ?>
-                    <div class="list-group-item">
-                        <h5 class="list-group-item-heading">
-                            Версия <?php echo htmlspecialchars($version_info['version']); ?>
-                            <small class="text-muted"> (от <?php echo htmlspecialchars($version_info['date']); ?>)</small>
-                        </h5>
-                        <div class="list-group-item-text">
-                            <pre><?php echo htmlspecialchars($version_info['changes']); ?></pre>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-        <?php endif; ?>
-		 <!-- Список модулей -->
-        <h4>Установленные модули</h4>
+        
+ 
  <h4>Установленные модули</h4>
 <table class="table table-bordered">
     <thead>
