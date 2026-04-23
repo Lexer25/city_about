@@ -1,0 +1,94 @@
+<?php defined('SYSPATH') or die('No direct script access.');
+
+class GitHub_UpdateChecker {
+
+    /**
+     * Получить последнюю версию модуля с GitHub
+     * @param string $moduleName имя модуля (ключ из конфига)
+     * @return string|false версия (например "1.2.3") или false при ошибке
+     */
+    public static function get_latest_version($moduleName) {
+        $config = Kohana::$config->load('github_updates');
+        if (!$config['enabled']) {
+            return false;
+        }
+
+        $repo = isset($config['repositories'][$moduleName]) ? $config['repositories'][$moduleName] : null;
+        if (!$repo) {
+            return false; // для этого модуля GitHub не настроен
+        }
+
+        // Пытаемся взять из кэша
+        $cacheKey = 'github_version_' . $moduleName;
+        $cached = Cache::instance()->get($cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $version = false;
+        if ($config['version_source'] === 'releases') {
+            $version = self::get_latest_release_version($repo);
+        } else {
+            $version = self::get_version_from_file($repo, $config);
+        }
+
+        if ($version) {
+            // Сохраняем в кэш
+            Cache::instance()->set($cacheKey, $version, $config['cache_lifetime']);
+        }
+
+        return $version;
+    }
+
+    /**
+     * Получить последнюю версию из тегов релизов GitHub
+     * @param string $repo "owner/repo"
+     * @return string|false
+     */
+    private static function get_latest_release_version($repo) {
+        $url = "https://api.github.com/repos/{$repo}/releases/latest";
+        $response = self::github_api_request($url);
+        if (!$response || !isset($response['tag_name'])) {
+            return false;
+        }
+        // Удаляем возможный префикс 'v'
+        return ltrim($response['tag_name'], 'v');
+    }
+
+    /**
+     * Получить версию из файла version.txt в корне репозитория (ветка main)
+     * @param string $repo
+     * @param array $config
+     * @return string|false
+     */
+    private static function get_version_from_file($repo, $config) {
+        $url = str_replace('{repo}', $repo, $config['version_file_url_pattern']);
+        $content = @file_get_contents($url);
+        if ($content === false) {
+            return false;
+        }
+        return trim($content);
+    }
+
+    /**
+     * Выполнить запрос к GitHub API с правильным User-Agent
+     * @param string $url
+     * @return array|null
+     */
+    private static function github_api_request($url) {
+        $opts = [
+            'http' => [
+                'method' => 'GET',
+                'header' => [
+                    'User-Agent: Kohana-City-UpdateChecker/1.0'
+                ]
+            ]
+        ];
+        $context = stream_context_create($opts);
+        $response = @file_get_contents($url, false, $context);
+        if ($response === false) {
+            return null;
+        }
+        return json_decode($response, true);
+    }
+}

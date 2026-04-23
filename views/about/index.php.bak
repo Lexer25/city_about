@@ -31,7 +31,6 @@
         <tr>
             <th>Модуль</th>
             <th>Версия</th>
-            <th>Обновление</th>
             <th>Путь</th>
         </tr>
     </thead>
@@ -40,30 +39,18 @@
         <tr>
             <td>
                 <strong><?= htmlspecialchars($module['name_display']) ?></strong>
-                <br><small class="text-muted"><?= htmlspecialchars($module['name']) ?></small>
+                <br>
+                <small class="text-muted"><?= htmlspecialchars($module['name']) ?></small>
             </td>
             <td>
                 <?php if ($module['version_defined']): ?>
                     <span class="label label-primary"><?= htmlspecialchars($module['version']) ?></span>
                 <?php else: ?>
                     <span class="label label-default"><?= htmlspecialchars($module['version']) ?></span>
+                    <br>
                     <?php if ($module['version'] !== 'Kohana'): ?>
-                        <br><small class="text-muted">(нет константы)</small>
+                        <small class="text-muted">(добавьте константу <?= strtoupper($module['name']) ?>_VERSION в init.php)</small>
                     <?php endif; ?>
-                <?php endif; ?>
-            </td>
-            <td>
-                <?php $status = $module['update_status']; ?>
-                <?php if ($status['error']): ?>
-                    <span class="label label-warning">⚠️ <?= $status['message'] ?></span>
-                <?php elseif ($status['has_update']): ?>
-                    <span class="label label-danger">🆙 <?= $status['message'] ?></span>
-                    <!-- можно добавить кнопку обновления -->
-                    <!-- <a href="update?module=<?= $module['name'] ?>" class="btn btn-xs btn-primary">Обновить</a> -->
-                <?php elseif ($status['latest_version'] !== null): ?>
-                    <span class="label label-success">✅ Актуально</span>
-                <?php else: ?>
-                    <span class="label label-default">⚙️ Не настроен</span>
                 <?php endif; ?>
             </td>
             <td><small><?= htmlspecialchars(str_replace(DOCROOT, '', $module['path'])) ?></small></td>
@@ -71,6 +58,24 @@
         <?php endforeach; ?>
     </tbody>
     <tfoot>
-        <tr><td colspan="4" class="text-center"><strong>Всего модулей: <?php echo count($modules_list); ?></strong></td></tr>
+        <tr>
+            <td colspan="3" class="text-center"><strong>Всего модулей: <?php echo count($modules_list); ?></strong></td>
+        </tr>
     </tfoot>
 </table>
+    </div>
+</div>
+
+<!-- Добавим немного CSS для улучшения внешнего вида -->
+<style>
+.modules-table pre {
+    margin: 0;
+    padding: 5px;
+    background: #f5f5f5;
+    border: none;
+}
+.modules-table .label {
+    font-size: 90%;
+    padding: 3px 8px;
+}
+</style>
