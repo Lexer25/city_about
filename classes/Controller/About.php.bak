@@ -29,9 +29,7 @@ class Controller_About extends Controller_Template {
             'website_2' => 'http://artonit.ru'
         );
         
-        // Получаем историю версий
-        $version_history = $this->get_version_history();
-        
+      
         // Получаем текущую версию
         $current_version = $this->get_current_version();
         
@@ -44,49 +42,13 @@ class Controller_About extends Controller_Template {
         // Формируем контент
         $content = View::factory('about/index')
             ->set('developer', $developer_info)
-            ->set('version_history', $version_history)
-            ->set('current_version', $current_version)
+              ->set('current_version', $current_version)
             ->set('modules_list', $modules_list);
             
         $this->template->content = $content;
     }
     
-    /**
-     * Получение истории версий из файлов
-     * @return array Массив с информацией о версиях
-     */
-    private function get_version_history()
-    {
-        $versions = array();
-        $version_dir = MODPATH . 'about/versions/';
-        
-        if (is_dir($version_dir)) {
-            $files = scandir($version_dir);
-            
-            foreach ($files as $file) {
-                if (preg_match('/^v?([0-9]+\.[0-9]+\.[0-9]+)$/i', $file, $matches)) {
-                    $version = $matches[1];
-                    $version_file = $version_dir . $file;
-                    
-                    if (is_file($version_file)) {
-                        $content = file_get_contents($version_file);
-                        $versions[$version] = array(
-                            'version' => $version,
-                            'date' => date('Y-m-d', filemtime($version_file)),
-                            'changes' => trim($content)
-                        );
-                    }
-                }
-            }
-            
-            // Сортируем версии в порядке убывания
-            uksort($versions, 'version_compare');
-            $versions = array_reverse($versions, true);
-        }
-        
-        return $versions;
-    }
-    
+   
     /**
      * Получение текущей версии
      * @return string Текущая версия
