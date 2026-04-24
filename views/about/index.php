@@ -21,6 +21,11 @@
                 <th>Веб-сайт:</th>
                 <td><a href="<?php echo htmlspecialchars($developer['website_1']); ?>" target="_blank"><?php echo htmlspecialchars($developer['website_1']).'<br>'.htmlspecialchars($developer['website_2']); ?></a></td>
             </tr>
+			<tr>
+                <th>Версия модуля About</th>
+                <td><?php echo ABOUT_VERSION; ?></td>
+            </tr>
+			
         </table>
 
         
