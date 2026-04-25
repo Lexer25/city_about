@@ -31,7 +31,7 @@
         <h4 style="margin: 15px 0 10px 0;">
             Установленные модули
             <label style="margin-left: 20px; font-weight: normal; font-size: 14px;">
-                <input type="checkbox" id="hideKohana"> Скрыть модули Kohana
+                <input type="checkbox" id="hideKohana"> Скрыть модули фреймворка
             </label>
         </h4>
 
