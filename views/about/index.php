@@ -27,7 +27,9 @@
                 </td>
             </tr>
         </table>
-
+<a href="<?= URL::site('about?refresh=1') ?>" class="btn btn-clear-cache">
+    Очистить кеш
+</a>
         <h4 style="margin: 15px 0 10px 0;">
             Установленные модули
             <label style="margin-left: 20px; font-weight: normal; font-size: 14px;">
