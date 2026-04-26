@@ -5,11 +5,24 @@ return array(
     'cache_lifetime' => 3600,              // кэш на 1 час
     'repositories' => array(
         // 'имя_модуля' => 'владелец/репозиторий'
-        'about'        => 'Lexer25/city_about',       // пример
-        'eventconfig'  => 'ArtSec/city_eventconfig',
-        'monitoring'   => 'ArtSec/city_monitoring',
-        // добавьте остальные модули, которые публикуются на GitHub
-		'people'  => 'Lexer25/city_people',     // <-- добавляем модуль people
+       	
+		'about'  => 'Lexer25/city_about',
+		'apb'  => 'Lexer25/city_apb',
+		'cfg'  => 'Lexer25/city_cfg',
+		'dbservice'  => 'Lexer25/city_dbservice',
+		'dbsetting'  => 'Lexer25/city_dbsetting',
+		'dev'  => 'Lexer25/city_dev',
+		'door'  => 'Lexer25/city_door',
+		'email'  => 'Lexer25/city_email',
+		'eventConfig'  => 'Lexer25/',
+		'events'  => 'Lexer25/city_events',
+		'eximdata'  => 'Lexer25/city_eximdata',
+		'identifier'  => 'Lexer25/city_identifier',
+		'parsec'  => 'Lexer25/city_parsec',
+		'people'  => 'Lexer25/city_people',
+
+
+
     ),
     //'version_source' => 'releases', // 'releases' (теги), либо 'file' (version.txt)
     'version_source' => 'file', // 'releases' (теги), либо 'file' (version.txt)
