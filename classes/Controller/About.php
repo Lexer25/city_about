@@ -17,7 +17,7 @@ class Controller_About extends Controller_Template {
         // Принудительное обновление кэша (параметр ?refresh=1)
         if (isset($_GET['refresh']) && $_GET['refresh'] == '1') {
             $this->clear_updates_cache();
-            $this->request->redirect('about');
+            $this->redirect('about');
         }
 
         // Получаем информацию о разработчике
