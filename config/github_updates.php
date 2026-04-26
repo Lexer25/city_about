@@ -14,12 +14,13 @@ return array(
 		'dev'  => 'Lexer25/city_dev',
 		'door'  => 'Lexer25/city_door',
 		'email'  => 'Lexer25/city_email',
-		'eventConfig'  => 'Lexer25/',
+		'eventConfig'  => 'Lexer25/city_eventConfig',
 		'events'  => 'Lexer25/city_events',
 		'eximdata'  => 'Lexer25/city_eximdata',
 		'identifier'  => 'Lexer25/city_identifier',
 		'parsec'  => 'Lexer25/city_parsec',
 		'people'  => 'Lexer25/city_people',
+		'setting'  => 'Lexer25/city_setting',
 
 
 
