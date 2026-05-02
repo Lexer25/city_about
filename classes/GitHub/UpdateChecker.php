@@ -60,21 +60,21 @@ class Github_UpdateChecker {
             return false;
         }
 
-        // Файловый кэш
-        $cacheDir = MODPATH . 'about/cache/';
-        if (!is_dir($cacheDir)) {
-            @mkdir($cacheDir, 0755, true);
-        }
-        $cacheFile = $cacheDir . 'github_version_' . md5($moduleName) . '.tmp';
-        $cacheLifetime = isset($config['cache_lifetime']) ? $config['cache_lifetime'] : 3600;
-
-        if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < $cacheLifetime) {
-            $cached = @file_get_contents($cacheFile);
-            if ($cached !== false) {
+        // Используем Kohana Cache вместо файлового кэша
+        $cache_key = 'github_version_' . $moduleName;
+        $cache_lifetime = isset($config['cache_lifetime']) ? $config['cache_lifetime'] : 3600;
+        
+        try {
+            // Пытаемся получить из Kohana Cache
+            $cached = Cache::instance()->get($cache_key);
+            if ($cached !== null) {
                 return $cached;
             }
+        } catch (Exception $e) {
+            error_log("Cache read error for $cache_key: " . $e->getMessage());
         }
 
+        // Получаем версию из GitHub
         $version = false;
         if ($config['version_source'] === 'releases') {
             $version = self::get_latest_release_version($repo);
@@ -82,8 +82,13 @@ class Github_UpdateChecker {
             $version = self::get_version_from_file($repo, $config);
         }
 
+        // Сохраняем в Kohana Cache
         if ($version) {
-            @file_put_contents($cacheFile, $version);
+            try {
+                Cache::instance()->set($cache_key, $version, $cache_lifetime);
+            } catch (Exception $e) {
+                error_log("Cache write error for $cache_key: " . $e->getMessage());
+            }
         }
 
         return $version;
@@ -120,5 +125,22 @@ class Github_UpdateChecker {
             return false;
         }
         return trim($content);
+    }
+    
+    /**
+     * Очистить кэш для конкретного модуля
+     * @param string $moduleName
+     */
+    public static function clear_cache($moduleName = null) {
+        try {
+            if ($moduleName) {
+                Cache::instance()->delete('github_version_' . $moduleName);
+            } else {
+                // Очистить все кэши GitHub (если нужно)
+                // Это зависит от драйвера кэша
+            }
+        } catch (Exception $e) {
+            error_log("Cache clear error: " . $e->getMessage());
+        }
     }
 }
