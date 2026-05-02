@@ -1,16 +1,16 @@
-<div class="panel panel-primary">
+﻿<div class="panel panel-primary">
     <div class="panel-heading">
-        <h3 class="panel-title">Информация о программе</h3>
+        <h3 class="panel-title">Информация о системе</h3>
     </div>
     <div class="panel-body" style="padding: 10px 15px;">
         
         <table class="table table-striped table-condensed" style="margin-bottom: 0;">
             <tr>
-                <th style="width: 120px;">Название:</th>
+                <th style="width: 120px;">Разработчик:</th>
                 <td><?php echo htmlspecialchars($developer['name']); ?></td>
             </tr>
             <tr>
-                <th>Компания:</th>
+                <th>Организация:</th>
                 <td><?php echo htmlspecialchars($developer['company']); ?></td>
             </tr>
             <tr>
@@ -18,7 +18,7 @@
                 <td><a href="mailto:<?php echo htmlspecialchars($developer['email']); ?>"><?php echo htmlspecialchars($developer['email']); ?></a></td>
             </tr>
             <tr>
-                <th>Веб-сайт:</th>
+                <th>Веб-сайты:</th>
                 <td>
                     <a href="<?php echo htmlspecialchars($developer['website_1']); ?>" target="_blank"><?php echo htmlspecialchars($developer['website_1']); ?></a>
                     <?php if (!empty($developer['website_2'])): ?>
@@ -27,9 +27,14 @@
                 </td>
             </tr>
         </table>
-<a href="<?= URL::site('about?refresh=1') ?>" class="btn btn-clear-cache">
-    Очистить кеш
-</a>
+        
+        <div style="margin: 15px 0;">
+            <button id="checkUpdatesBtn" class="btn btn-primary">
+                <i class="glyphicon glyphicon-refresh"></i> Проверить обновления
+            </button>
+            <span id="checkUpdatesStatus" style="margin-left: 10px;"></span>
+        </div>
+
         <h4 style="margin: 15px 0 10px 0;">
             Установленные модули
             <label style="margin-left: 20px; font-weight: normal; font-size: 14px;">
@@ -42,15 +47,15 @@
                 <tr>
                     <th style="width: 40px;">№</th>
                     <th>Модуль</th>
-                    <th>Версия</th>
-                    <th>Обновление</th>
+                    <th>Текущая версия</th>
+                    <th>Актуальная версия (GitHub)</th>
                     <th>Путь</th>
                 </tr>
             </thead>
             <tbody>
                 <?php $counter = 1; ?>
                 <?php foreach ($modules_list as $module): ?>
-                <tr data-version="<?= htmlspecialchars($module['version']) ?>">
+                <tr data-module="<?= htmlspecialchars($module['name']) ?>" data-current-version="<?= htmlspecialchars($module['version']) ?>">
                     <td class="text-center"><?= $counter++ ?></td>
                     <td>
                         <strong><?= htmlspecialchars($module['name_display']) ?></strong>
@@ -66,16 +71,27 @@
                             <?php endif; ?>
                         <?php endif; ?>
                     </td>
-                    <td>
-                        <?php $status = $module['update_status']; ?>
-                        <?php if ($status['error']): ?>
-                            <span class="label label-warning">⚠️ <?= $status['message'] ?></span>
-                        <?php elseif ($status['has_update']): ?>
-                            <span class="label label-danger">🆙 <?= $status['message'] ?></span>
-                        <?php elseif ($status['latest_version'] !== null): ?>
-                            <span class="label label-success">✅ Актуально</span>
+                    <td class="update-cell" data-module="<?= htmlspecialchars($module['name']) ?>">
+                        <?php 
+                        $status = $module['update_status'];
+                        $latest_version = $status['latest_version'];
+                        $has_update = $status['has_update'];
+                        $error = $status['error'];
+                        
+                        if ($error): ?>
+                            <span class="label label-warning"><?= htmlspecialchars($status['message']) ?></span>
+                        <?php elseif ($latest_version !== null): ?>
+                            <?php if ($has_update): ?>
+                                <span class="label label-danger">
+                                    <?= htmlspecialchars($latest_version) ?> (есть обновление!)
+                                </span>
+                            <?php else: ?>
+                                <span class="label label-success">
+                                    <?= htmlspecialchars($latest_version) ?> (актуально)
+                                </span>
+                            <?php endif; ?>
                         <?php else: ?>
-                            <span class="label label-default">⚙️ Не настроен</span>
+                            <span class="label label-default">Неизвестно</span>
                         <?php endif; ?>
                     </td>
                     <td><small><?= htmlspecialchars(str_replace(DOCROOT, '', $module['path'])) ?></small></td>
@@ -91,6 +107,21 @@
     </div>
 </div>
 
+<style>
+    .glyphicon-spin {
+        -webkit-animation: spin 2s infinite linear;
+        animation: spin 2s infinite linear;
+    }
+    @-webkit-keyframes spin {
+        0% { -webkit-transform: rotate(0deg); }
+        100% { -webkit-transform: rotate(359deg); }
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(359deg); }
+    }
+</style>
+
 <script>
     (function() {
         const checkbox = document.getElementById('hideKohana');
@@ -99,11 +130,12 @@
         const rows = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
         const countCell = document.querySelector('#modulesCountRow td');
         const totalModules = <?php echo count($modules_list); ?>;
+        const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
+        const checkUpdatesStatus = document.getElementById('checkUpdatesStatus');
 
         function updateVisibleCount() {
             if (!countCell) return;
             const visibleRows = rows.filter(row => {
-                // проверяем, видима ли строка (не имеет style.display = 'none')
                 return row.style.display !== 'none';
             });
             const visibleCount = visibleRows.length;
@@ -117,8 +149,7 @@
         function filterRows() {
             const hide = checkbox.checked;
             rows.forEach(row => {
-                // проверяем, является ли модуль Kohana (по атрибуту data-version)
-                const version = row.getAttribute('data-version');
+                const version = row.getAttribute('data-current-version');
                 if (hide && version === 'Kohana') {
                     row.style.display = 'none';
                 } else {
@@ -130,8 +161,70 @@
 
         if (checkbox) {
             checkbox.addEventListener('change', filterRows);
-            // принудительно применить фильтр при загрузке (если checkbox по какой-то причине включён)
             filterRows();
+        }
+
+        // Обработчик кнопки "Проверить обновления"
+        if (checkUpdatesBtn) {
+            checkUpdatesBtn.addEventListener('click', function() {
+                const btn = this;
+                const originalText = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="glyphicon glyphicon-refresh glyphicon-spin"></i> Проверка...';
+                checkUpdatesStatus.innerHTML = '<span class="text-info">Идет проверка обновлений...</span>';
+                
+                // AJAX-запрос к серверу
+                fetch('<?= $check_updates_url ?>', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Ошибка сети');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Обновляем ячейки с версиями
+                    rows.forEach(row => {
+                        const moduleName = row.getAttribute('data-module');
+                        const currentVersion = row.getAttribute('data-current-version');
+                        const updateCell = row.querySelector('.update-cell');
+                        
+                        if (updateCell && data[moduleName]) {
+                            const info = data[moduleName];
+                            
+                            if (info.error) {
+                                updateCell.innerHTML = `<span class="label label-warning">${info.message}</span>`;
+                            } else if (info.latest_version) {
+                                const hasUpdate = info.has_update;
+                                let labelClass = hasUpdate ? 'label-danger' : 'label-success';
+                                let extraText = hasUpdate ? ' (есть обновление!)' : ' (актуально)';
+                                updateCell.innerHTML = `<span class="label ${labelClass}">${info.latest_version}${extraText}</span>`;
+                            } else {
+                                updateCell.innerHTML = '<span class="label label-default">Неизвестно</span>';
+                            }
+                        }
+                    });
+                    
+                    checkUpdatesStatus.innerHTML = '<span class="text-success">Проверка завершена</span>';
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    
+                    // Автоматически скрываем сообщение через 3 секунды
+                    setTimeout(() => {
+                        checkUpdatesStatus.innerHTML = '';
+                    }, 3000);
+                })
+                .catch(error => {
+                    console.error('Ошибка при проверке обновлений:', error);
+                    checkUpdatesStatus.innerHTML = '<span class="text-danger">Ошибка при проверке обновлений</span>';
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                });
+            });
         }
     })();
 </script>

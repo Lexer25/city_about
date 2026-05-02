@@ -9,66 +9,100 @@ class Controller_About extends Controller_Template {
         parent::before();
         
         // Устанавливаем заголовок страницы
-        $this->template->title = __('О программе');
+        $this->template->title = __('О системе');
     }
 
     public function action_index()
     {
-        // Принудительное обновление кэша (параметр ?refresh=1)
-        if (isset($_GET['refresh']) && $_GET['refresh'] == '1') {
-            $this->clear_updates_cache();
-            $this->redirect('about');
-        }
-
+        // При открытии окна пытаемся показать кэшированные версии с GitHub
+        $config = Kohana::$config->load('github_updates');
+        $original_enabled = $config['enabled'];
+        
         // Получаем информацию о разработчике
         $developer_info = array(
-            'name' => 'Артонит Сити панель управления СКУД',
+            'name' => 'Разработчик системы',
             'company' => 'ООО "Артсек"',
             'email' => 'support@artsec.ru',
             'website_1' => 'http://artsec.ru',
             'website_2' => 'http://artonit.ru'
         );
         
-      
         // Получаем текущую версию
         $current_version = $this->get_current_version();
         
-        // Получаем список всех модулей с их версиями
+        // Получаем список модулей с версиями
         $modules_list = $this->get_all_modules_with_versions();
         
-        // Добавляем информацию о наличии обновлений на GitHub
+        // Пытаемся получить кэшированные версии с GitHub
         $modules_list = $this->enrich_modules_with_updates($modules_list);
         
-        // Формируем контент
+        // Добавляем кнопку "Проверить обновления" в данные для представления
         $content = View::factory('about/index')
             ->set('developer', $developer_info)
-              ->set('current_version', $current_version)
-            ->set('modules_list', $modules_list);
+            ->set('current_version', $current_version)
+            ->set('modules_list', $modules_list)
+            ->set('check_updates_url', URL::site('about/check_updates'));
             
         $this->template->content = $content;
     }
     
-   
     /**
-     * Получение текущей версии
-     * @return string Текущая версия
+     * AJAX-обработчик для проверки обновлений
      */
-    private function get_current_version()
+    public function action_check_updates()
     {
-              
-        return ABOUT_VERSION; // Используем константу модуля
+        $this->auto_render = false;
+        
+        // Включаем проверку обновлений
+        $config = Kohana::$config->load('github_updates');
+        $original_enabled = $config['enabled'];
+        Kohana::$config->load('github_updates')->set('enabled', true);
+        
+        // Очищаем кэш обновлений, чтобы получить свежие данные
+        $this->clear_updates_cache();
+        
+        // Получаем список модулей
+        $modules_list = $this->get_all_modules_with_versions();
+        
+        // Проверяем обновления
+        $modules_list = $this->enrich_modules_with_updates($modules_list);
+        
+        // Восстанавливаем оригинальное значение
+        Kohana::$config->load('github_updates')->set('enabled', $original_enabled);
+        
+        // Формируем ответ в формате JSON
+        $response = array();
+        foreach ($modules_list as $module_name => $module) {
+            $status = $module['update_status'];
+            $response[$module_name] = array(
+                'has_update' => $status['has_update'],
+                'latest_version' => $status['latest_version'],
+                'error' => $status['error'],
+                'message' => $status['message'],
+                'current_version' => $module['version']
+            );
+        }
+        
+        $this->response->headers('Content-Type', 'application/json');
+        $this->response->body(json_encode($response));
     }
     
     /**
-     * Получение списка всех модулей с их версиями
-     * @return array
+     * Получить текущую версию модуля about
+     */
+    private function get_current_version()
+    {
+        return defined('ABOUT_VERSION') ? ABOUT_VERSION : '1.0.0';
+    }
+    
+    /**
+     * Получить список всех модулей с версиями
      */
     private function get_all_modules_with_versions()
     {
         $modules = array();
         $active_modules = Kohana::modules();
         
-        // Сканируем MODPATH на наличие папок первого уровня
         $modpath = rtrim(MODPATH, DIRECTORY_SEPARATOR);
         if (is_dir($modpath)) {
             $items = scandir($modpath);
@@ -81,26 +115,21 @@ class Controller_About extends Controller_Template {
                     $module_name = $item;
                     $module_path = $item_path . DIRECTORY_SEPARATOR;
                     
-                    // Проверяем наличие init.php
                     $init_file = $module_path . 'init.php';
                     $has_init = file_exists($init_file);
                     
-                    // Определяем константу версии
                     $const_name = strtoupper($module_name) . '_VERSION';
-                    $version = defined($const_name) ? constant($const_name) : 'не указана';
+                    $version = defined($const_name) ? constant($const_name) : 'Не определена';
                     
-                    // Если модуль принадлежит фреймворку Kohana и версия не указана, заменяем на "Kohana"
                     $kohana_core_modules = array('auth', 'cache', 'codebench', 'database', 'image', 'minion', 'orm', 'unittest', 'userguide');
-                    if (in_array($module_name, $kohana_core_modules) && $version === 'не указана') {
+                    if (in_array($module_name, $kohana_core_modules) && $version === 'Не определена') {
                         $version = 'Kohana';
                     }
                     
-                    // Если init.php есть, но константа не определена, можно попробовать альтернативные методы
-                    if ($has_init && $version === 'не указана') {
+                    if ($has_init && $version === 'Не определена') {
                         $version = $this->get_module_version_alternative($module_path);
                     }
                     
-                    // Проверяем, активен ли модуль
                     $is_active = array_key_exists($module_name, $active_modules);
                     
                     $modules[$module_name] = array(
@@ -116,20 +145,16 @@ class Controller_About extends Controller_Template {
             }
         }
         
-        // Сортируем модули по имени
         ksort($modules);
         
         return $modules;
     }
     
     /**
-     * Альтернативные способы получения версии модуля
-     * @param string $module_path Путь к модулю
-     * @return string Версия модуля
+     * Альтернативный способ получения версии модуля
      */
     private function get_module_version_alternative($module_path)
     {
-        // Проверяем наличие файла version.php
         $version_file = $module_path . 'version.php';
         if (file_exists($version_file)) {
             $version_data = include $version_file;
@@ -140,7 +165,6 @@ class Controller_About extends Controller_Template {
             }
         }
         
-        // Проверяем наличие файла config/version.php
         $config_file = $module_path . 'config/version.php';
         if (file_exists($config_file)) {
             $config = include $config_file;
@@ -149,7 +173,6 @@ class Controller_About extends Controller_Template {
             }
         }
         
-        // Проверяем наличие файла VERSION
         $version_txt = $module_path . 'VERSION';
         if (file_exists($version_txt)) {
             return trim(file_get_contents($version_txt));
@@ -159,24 +182,20 @@ class Controller_About extends Controller_Template {
     }
     
     /**
-     * Форматирование имени модуля для отображения
-     * @param string $module_name Оригинальное имя модуля
-     * @return string Отформатированное имя
+     * Форматирование имени модуля
      */
     private function format_module_name($module_name)
     {
-        // Преобразуем camelCase в читаемый текст
         $formatted = preg_replace('/(?<=\\p{L})(?=\\p{Lu})/u', ' ', $module_name);
         $formatted = ucfirst(strtolower($formatted));
         
-        // Специальные случаи
         $special_names = array(
             'about' => 'О системе',
             'eventconfig' => 'Конфигурация событий',
             'accesscontrol' => 'Контроль доступа',
             'monitoring' => 'Мониторинг',
             'reports' => 'Отчеты',
-            'users' => 'Пользователи и роли'
+            'users' => 'Пользователи системы'
         );
         
         $key = strtolower($module_name);
@@ -188,91 +207,38 @@ class Controller_About extends Controller_Template {
     }
     
     /**
-     * Проверка, является ли модуль системным
-     * @param string $module_name Имя модуля
-     * @return bool
-     */
-    private function is_core_module($module_name)
-    {
-        $core_modules = array('auth', 'database', 'orm', 'cache', 'pagination');
-        return in_array(strtolower($module_name), $core_modules);
-    }
-    
-    /**
-     * Получение статуса модуля
-     * @param string $module_name Имя модуля
-     * @param string $version Версия модуля
-     * @return array Статус модуля
-     */
-    private function get_module_status($module_name, $version)
-    {
-        $status = array(
-            'class' => 'success',
-            'text' => 'Активен'
-        );
-        
-        if ($version === 'Не определена') {
-            $status['class'] = 'warning';
-            $status['text'] = 'Версия не определена';
-        }
-        
-        if ($this->is_module_outdated($module_name, $version)) {
-            $status['class'] = 'danger';
-            $status['text'] = 'Требует обновления';
-        }
-        
-        return $status;
-    }
-    
-    /**
-     * Проверка устарела ли версия модуля (локальная, статическая проверка)
-     * @param string $module_name Имя модуля
-     * @param string $version Версия модуля
-     * @return bool
-     */
-    private function is_module_outdated($module_name, $version)
-    {
-        // Здесь можно добавить логику проверки актуальности версий
-        // Например, сравнение с последней известной версией
-        static $latest_versions = array(
-            'about' => '1.0.0',
-            'eventconfig' => '2.1.3'
-        );
-        
-        $key = strtolower($module_name);
-        if (isset($latest_versions[$key]) && $version !== 'Не определена') {
-            return version_compare($version, $latest_versions[$key], '<');
-        }
-        
-        return false;
-    }
-    
-    // ========== НОВЫЕ МЕТОДЫ ДЛЯ ПРОВЕРКИ ОБНОВЛЕНИЙ НА GITHUB ==========
-    
-    /**
-     * Очистить кэш проверок обновлений
-     */
-    private function clear_updates_cache()
-    {
-        try {
-            Cache::instance()->delete('github_updates_all');
-            // Удаляем также все ключи по шаблону, если нужно более тщательно
-            // Cache::instance()->delete_tag('github_updates'); // если используете теги
-        } catch (Exception $e) {
-            // Игнорируем ошибки кэша
-        }
-    }
-    
-    /**
-     * Добавить к списку модулей информацию о наличии обновлений на GitHub
-     * @param array $modules_list Исходный список модулей
-     * @return array Обогащённый список модулей
+     * Обогащение модулей информацией об обновлениях
      */
     private function enrich_modules_with_updates($modules_list)
     {
         $config = Kohana::$config->load('github_updates');
+        
+        // Пытаемся получить данные из кэша
+        $cache_key = 'github_updates_statuses';
+        try {
+            $cached = Cache::instance()->get($cache_key);
+            if ($cached !== null && is_array($cached)) {
+                // Используем кэшированные данные
+                foreach ($modules_list as $name => &$module) {
+                    if (isset($cached[$name])) {
+                        $module['update_status'] = $cached[$name];
+                    } else {
+                        $module['update_status'] = array(
+                            'has_update' => false,
+                            'latest_version' => null,
+                            'error' => false,
+                            'message' => 'Нет данных'
+                        );
+                    }
+                }
+                return $modules_list;
+            }
+        } catch (Exception $e) {
+            // Игнорируем ошибки кэша
+        }
+        
+        // Если кэша нет, проверяем обновления (только если включено)
         if (!$config['enabled']) {
-            // Если проверка отключена глобально, просто добавляем пустые статусы
             foreach ($modules_list as &$module) {
                 $module['update_status'] = array(
                     'has_update' => false,
@@ -284,22 +250,17 @@ class Controller_About extends Controller_Template {
             return $modules_list;
         }
         
-        // Пытаемся взять результаты проверки из кэша (для всех модулей сразу)
-        $cache_key = 'github_updates_all';
+        // Проверяем обновления через GitHub
+        $statuses = $this->check_updates_for_modules($modules_list);
+        
+        // Сохраняем в кэш
         try {
-            $cached = Cache::instance()->get($cache_key);
-            if ($cached !== null && is_array($cached)) {
-                $statuses = $cached;
-            } else {
-                $statuses = $this->check_updates_for_modules($modules_list);
-                Cache::instance()->set($cache_key, $statuses, $config['cache_lifetime']);
-            }
+            Cache::instance()->set($cache_key, $statuses, $config['cache_lifetime']);
         } catch (Exception $e) {
-            // Если кэш недоступен, проверяем "вживую"
-            $statuses = $this->check_updates_for_modules($modules_list);
+            // Игнорируем ошибки кэша
         }
         
-        // Прикрепляем статус к каждому модулю
+        // Применяем статусы к модулям
         foreach ($modules_list as $name => &$module) {
             if (isset($statuses[$name])) {
                 $module['update_status'] = $statuses[$name];
@@ -308,7 +269,7 @@ class Controller_About extends Controller_Template {
                     'has_update' => false,
                     'latest_version' => null,
                     'error' => false,
-                    'message' => 'Не настроен GitHub'
+                    'message' => 'Нет данных от GitHub'
                 );
             }
         }
@@ -317,23 +278,25 @@ class Controller_About extends Controller_Template {
     }
     
     /**
-     * Проверить наличие обновлений для переданных модулей
-     * @param array $modules_list Список модулей (ключ -> имя модуля)
-     * @return array Массив статусов обновлений
+     * Проверка обновлений для модулей
      */
     private function check_updates_for_modules($modules_list)
     {
-        $config = Kohana::$config->load('github_updates');
         $statuses = array();
         
         foreach ($modules_list as $name => $info) {
             $currentVersion = $info['version'];
-            // Если версия не определена или это системный модуль Kohana – пропускаем
-            if ($currentVersion === 'не указана' || $currentVersion === 'Не определена' || $currentVersion === 'Kohana') {
+            if ($currentVersion === 'Не определена' || $currentVersion === 'Kohana') {
+                $statuses[$name] = array(
+                    'has_update' => false,
+                    'latest_version' => null,
+                    'error' => false,
+                    'message' => 'Версия не определена'
+                );
                 continue;
             }
             
-            // Получаем последнюю версию из GitHub (через вспомогательный класс)
+            // Используем класс из модуля about
             $latest = GitHub_UpdateChecker::get_latest_version($name);
             
             if ($latest === false) {
@@ -351,10 +314,22 @@ class Controller_About extends Controller_Template {
                 'has_update' => $hasUpdate,
                 'latest_version' => $latest,
                 'error' => false,
-                'message' => $hasUpdate ? "Доступна версия {$latest}" : "Актуально"
+                'message' => $hasUpdate ? "Доступна версия {$latest}" : "Актуальная версия"
             );
         }
         
         return $statuses;
+    }
+    
+    /**
+     * Очистка кэша обновлений
+     */
+    private function clear_updates_cache()
+    {
+        try {
+            Cache::instance()->delete('github_updates_statuses');
+        } catch (Exception $e) {
+            // Игнорируем ошибки кэша
+        }
     }
 }
