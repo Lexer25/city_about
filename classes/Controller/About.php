@@ -7,11 +7,24 @@ class Controller_About extends Controller_Template {
     // Единый префикс для всех ключей кэша
     const CACHE_PREFIX = 'github_';
     const CACHE_STATUSES_KEY = 'github_updates_statuses';
+	
 
     public function before()
     {
         parent::before();
         $this->template->title = __('О системе');
+		 // Для AJAX методов проверяем права
+    $actions = ['install_update', 'download_update', 'check_updates'];
+    $action = $this->request->action();
+    
+    if (in_array($action, $actions)) {
+        if (!Auth::instance()->logged_in('admin')) {
+            $this->auto_render = false;
+            $this->response->headers('Content-Type', 'application/json');
+            $this->response->body(json_encode(['success' => false, 'error' => 'Access denied']));
+            return;
+        }
+    }
     }
 
     public function action_index()
@@ -339,4 +352,93 @@ class Controller_About extends Controller_Template {
             error_log("Failed to clear cache: " . $e->getMessage());
         }
     }
+	
+	
+	// Добавьте эти методы в класс Controller_About
+
+/**
+ * AJAX-обработчик для установки обновления
+ */
+public function action_install_update() {
+    $this->auto_render = false;
+    $this->response->headers('Content-Type', 'application/json');
+    
+    $module_name = $this->request->param('module');
+    
+    if (!$module_name) {
+        echo json_encode(['success' => false, 'error' => 'Не указан модуль']);
+        return;
+    }
+    
+    // Проверяем права доступа (только администраторы)
+    if (!Auth::instance()->logged_in('admin')) {
+        echo json_encode(['success' => false, 'error' => 'Недостаточно прав']);
+        return;
+    }
+    
+    // Вызываем установку
+    $result = UpdateInstaller::install_update($module_name);
+    
+    echo json_encode($result);
+}
+
+/**
+ * AJAX-обработчик для скачивания обновления (предварительный просмотр)
+ */
+public function action_download_update() {
+    $this->auto_render = false;
+    $this->response->headers('Content-Type', 'application/json');
+    
+    $module_name = $this->request->param('module');
+    
+    if (!$module_name) {
+        echo json_encode(['success' => false, 'error' => 'Не указан модуль']);
+        return;
+    }
+    
+    if (!Auth::instance()->logged_in('admin')) {
+        echo json_encode(['success' => false, 'error' => 'Недостаточно прав']);
+        return;
+    }
+    
+    // Получаем информацию о релизе
+    $config = Kohana::$config->load('github_updates');
+    if (isset($config['repositories']) && array_key_exists($module_name, $config['repositories'])) {
+    $repo = $config['repositories'][$module_name];
+} else {
+    $repo = null;
+}
+    
+    if (!$repo) {
+        echo json_encode(['success' => false, 'error' => 'Репозиторий не найден']);
+        return;
+    }
+    
+    $url = "https://api.github.com/repos/{$repo}/releases/latest";
+    $response = Github_UpdateChecker::http_get($url);
+    
+    if (!$response) {
+        echo json_encode(['success' => false, 'error' => 'Не удалось получить информацию']);
+        return;
+    }
+    
+   $data = json_decode($response, true);
+
+// Безопасное получение размера
+$size = 0;
+if (isset($data['assets'][0]['size'])) {
+    $size = $data['assets'][0]['size'];
+}
+
+$release_info = [
+    'version' => ltrim($data['tag_name'], 'v'),
+    'body' => isset($data['body']) ? $data['body'] : '',
+    'published_at' => isset($data['published_at']) ? $data['published_at'] : '',
+    'size' => $size
+];
+    
+    echo json_encode(['success' => true, 'release' => $release_info]);
+}
+
+
 }

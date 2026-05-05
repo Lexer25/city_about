@@ -1,6 +1,21 @@
 <?php
 // MODPATH/about/init.php
-defined('ABOUT_VERSION') OR define('ABOUT_VERSION', '1.0.4');
+defined('ABOUT_VERSION') OR define('ABOUT_VERSION', '1.0.5');
 
 // Дополнительная инициализация модуля About
 // Можно добавить загрузку дополнительных файлов если нужно
+
+// Добавьте в файл bootstrap.php после определения маршрутов
+Route::set('about_install', 'about/install_update/<module>', array('module' => '.*'))
+    ->defaults(array(
+        'controller' => 'about',
+        'action' => 'install_update',
+    ));
+
+Route::set('about_download', 'about/download_update/<module>', array('module' => '.*'))
+    ->defaults(array(
+        'controller' => 'about',
+        'action' => 'download_update',
+    ));
+	
+	

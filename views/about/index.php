@@ -227,4 +227,100 @@
             });
         }
     })();
+	
+	// Добавьте в конец JavaScript кода обработку кнопок обновления
+
+// Обработчики кнопок обновления для каждого модуля
+function addUpdateButtons() {
+    rows.forEach(row => {
+        const moduleName = row.getAttribute('data-module');
+        const currentVersion = row.getAttribute('data-current-version');
+        const updateCell = row.querySelector('.update-cell');
+        const versionCell = row.querySelector('td:nth-child(3)');
+        
+        // Показываем кнопку обновления только если есть обновление
+        if (updateCell) {
+            const statusSpan = updateCell.querySelector('span');
+            if (statusSpan && statusSpan.classList.contains('label-danger')) {
+                // Добавляем кнопку обновления
+                const updateBtn = document.createElement('button');
+                updateBtn.className = 'btn btn-xs btn-success update-module-btn';
+                updateBtn.setAttribute('data-module', moduleName);
+                updateBtn.innerHTML = '<i class="glyphicon glyphicon-download-alt"></i> Обновить';
+                updateBtn.style.marginLeft = '10px';
+                
+                updateBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    confirmUpdate(moduleName, updateBtn);
+                });
+                
+                updateCell.appendChild(updateBtn);
+            }
+        }
+    });
+}
+
+function confirmUpdate(moduleName, btn) {
+    if (confirm(`Обновить модуль "${moduleName}"?\n\nРекомендуется сделать резервную копию перед обновлением.`)) {
+        performUpdate(moduleName, btn);
+    }
+}
+
+function performUpdate(moduleName, btn) {
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="glyphicon glyphicon-refresh glyphicon-spin"></i> Установка...';
+    
+    fetch(`/about/install_update/${moduleName}`, {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('success', `Модуль ${moduleName} успешно обновлен!`);
+            // Обновляем версию на странице
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        } else {
+            showNotification('danger', `Ошибка: ${data.error}`);
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('danger', 'Произошла ошибка при обновлении');
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    });
+}
+
+function showNotification(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade in`;
+    alertDiv.style.position = 'fixed';
+    alertDiv.style.top = '20px';
+    alertDiv.style.right = '20px';
+    alertDiv.style.zIndex = '9999';
+    alertDiv.style.minWidth = '300px';
+    alertDiv.innerHTML = `
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        <strong>${type === 'success' ? 'Успех!' : 'Ошибка!'}</strong> ${message}
+    `;
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+
+// Вызываем добавление кнопок после загрузки
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(addUpdateButtons, 500);
+});
 </script>

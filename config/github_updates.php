@@ -22,4 +22,12 @@ return array(
     ),
     'version_source' => 'file', // 'releases' (релизы), либо 'file' (version.txt)
     'version_file_url_pattern' => 'https://raw.githubusercontent.com/{repo}/main/version.txt',
+	
+	// НОВЫЕ НАСТРОЙКИ ДЛЯ ОБНОВЛЕНИЙ
+    'updates' => array(
+        'backup_enabled' => true,           // Создавать бэкапы перед обновлением
+        'backup_dir' => APPPATH . 'cache/backups/', // Директория для бэкапов
+        'temp_dir' => APPPATH . 'cache/temp/',      // Временная директория
+        'maintenance_mode_file' => APPPATH . 'cache/maintenance.lock', // Файл блокировки
+    ),
 );
