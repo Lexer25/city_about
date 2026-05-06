@@ -5,6 +5,9 @@ defined('ABOUT_VERSION') OR define('ABOUT_VERSION', '1.0.5');
 // Дополнительная инициализация модуля About
 // Можно добавить загрузку дополнительных файлов если нужно
 
+// Подключаем файл UpdateInstaller
+require_once dirname(__FILE__) . '/classes/UpdateInstaller.php';
+
 // Добавьте в файл bootstrap.php после определения маршрутов
 Route::set('about_install', 'about/install_update/<module>', array('module' => '.*'))
     ->defaults(array(

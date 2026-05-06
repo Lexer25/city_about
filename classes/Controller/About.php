@@ -363,23 +363,44 @@ public function action_install_update() {
     $this->auto_render = false;
     $this->response->headers('Content-Type', 'application/json');
     
+    // Логируем начало запроса
+    error_log("=== action_install_update called ===");
+    
     $module_name = $this->request->param('module');
+    error_log("Module name: " . $module_name);
     
     if (!$module_name) {
-        echo json_encode(['success' => false, 'error' => 'Не указан модуль']);
+        $error_response = json_encode(['success' => false, 'error' => 'Не указан модуль']);
+        error_log("Error: " . $error_response);
+        echo $error_response;
         return;
     }
     
     // Проверяем права доступа (только администраторы)
     if (!Auth::instance()->logged_in('admin')) {
-        echo json_encode(['success' => false, 'error' => 'Недостаточно прав']);
+        $error_response = json_encode(['success' => false, 'error' => 'Недостаточно прав']);
+        error_log("Auth error");
+        echo $error_response;
+        return;
+    }
+    
+    // Проверяем существование класса UpdateInstaller
+    if (!class_exists('UpdateInstaller')) {
+        $error_response = json_encode(['success' => false, 'error' => 'Класс UpdateInstaller не найден']);
+        error_log("Class not found: UpdateInstaller");
+        echo $error_response;
         return;
     }
     
     // Вызываем установку
-    $result = UpdateInstaller::install_update($module_name);
-    
-    echo json_encode($result);
+    try {
+        $result = UpdateInstaller::install_update($module_name);
+        error_log("Update result: " . print_r($result, true));
+        echo json_encode($result);
+    } catch (Exception $e) {
+        error_log("Exception: " . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
 }
 
 /**
