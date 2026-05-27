@@ -19,3 +19,11 @@ Route::set('about_download', 'about/download_update/<module>', array('module' =>
     ));
 	
 	
+Kohana::$config->load('menu')
+    ->set('about', array(
+        'title' => 'О программе',
+        'url' => 'about',
+        'icon' => 'fa-cog',
+        'order' => 100,
+       
+    ));
