@@ -1,4 +1,4 @@
-﻿<div class="panel panel-primary">
+﻿﻿<div class="panel panel-primary">
     <div class="panel-heading">
         <h3 class="panel-title">Информация о системе</h3>
     </div>
@@ -27,18 +27,16 @@
                 </td>
             </tr>
         </table>
-        
-        <div style="margin: 15px 0;">
-            <button id="checkUpdatesBtn" class="btn btn-primary">
-                <i class="glyphicon glyphicon-refresh"></i> Проверить обновления
-            </button>
-            <span id="checkUpdatesStatus" style="margin-left: 10px;"></span>
+
+        <div class="alert alert-info" style="margin: 15px 0;">
+            <i class="glyphicon glyphicon-info-sign"></i>
+            Информация о модулях получена из локальных файлов системы.
         </div>
 
         <h4 style="margin: 15px 0 10px 0;">
             Установленные модули
             <label style="margin-left: 20px; font-weight: normal; font-size: 14px;">
-                <input type="checkbox" id="hideKohana"> Скрыть модули фреймворка
+                <input type="checkbox" id="hideKohana" checked> Скрыть модули фреймворка
             </label>
         </h4>
 
@@ -47,60 +45,50 @@
                 <tr>
                     <th style="width: 40px;">№</th>
                     <th>Модуль</th>
-                    <th>Текущая версия</th>
-                    <th>Актуальная версия (GitHub)</th>
+                    <th>Версия</th>
+                    <th>Источник версии</th>
+                    <th>Статус</th>
                     <th>Путь</th>
-                </tr>
+					<th>Титул страницы</th>
+                 </tr>
             </thead>
             <tbody>
                 <?php $counter = 1; ?>
                 <?php foreach ($modules_list as $module): ?>
-                <tr data-module="<?= htmlspecialchars($module['name']) ?>" data-current-version="<?= htmlspecialchars($module['version']) ?>">
+                <tr data-module="<?= htmlspecialchars($module['name']) ?>" data-version="<?= htmlspecialchars($module['version']) ?>">
                     <td class="text-center"><?= $counter++ ?></td>
                     <td>
-                        <strong><?= htmlspecialchars($module['name_display']) ?></strong>
-                        <br><small class="text-muted"><?= htmlspecialchars($module['name']) ?></small>
+                        <?= htmlspecialchars($module['name']) ?>
                     </td>
                     <td>
                         <?php if ($module['version_defined']): ?>
                             <span class="label label-primary"><?= htmlspecialchars($module['version']) ?></span>
+                        <?php elseif ($module['version'] === 'Kohana'): ?>
+                            <span class="label label-default">Kohana Core</span>
                         <?php else: ?>
-                            <span class="label label-default"><?= htmlspecialchars($module['version']) ?></span>
-                            <?php if ($module['version'] !== 'Kohana'): ?>
-                                <br><small class="text-muted">(нет константы)</small>
-                            <?php endif; ?>
+                            <span class="label label-warning"><?= htmlspecialchars($module['version']) ?></span>
                         <?php endif; ?>
                     </td>
-                    <td class="update-cell" data-module="<?= htmlspecialchars($module['name']) ?>">
-                        <?php 
-                        $status = $module['update_status'];
-                        $latest_version = $status['latest_version'];
-                        $has_update = $status['has_update'];
-                        $error = $status['error'];
-                        
-                        if ($error): ?>
-                            <span class="label label-warning"><?= htmlspecialchars($status['message']) ?></span>
-                        <?php elseif ($latest_version !== null): ?>
-                            <?php if ($has_update): ?>
-                                <span class="label label-danger">
-                                    <?= htmlspecialchars($latest_version) ?> (есть обновление!)
-                                </span>
-                            <?php else: ?>
-                                <span class="label label-success">
-                                    <?= htmlspecialchars($latest_version) ?> (актуально)
-                                </span>
-                            <?php endif; ?>
+					<td>
+                        <small><?= htmlspecialchars($module['version_source']) ?></small>
+                    </td>
+                    <td>
+                        <?php if ($module['is_active']): ?>
+                            <span class="label label-success">Активен</span>
                         <?php else: ?>
-                            <span class="label label-default">Неизвестно</span>
+                            <span class="label label-danger">Неактивен</span>
                         <?php endif; ?>
                     </td>
-                    <td><small><?= htmlspecialchars(str_replace(DOCROOT, '', $module['path'])) ?></small></td>
+                    <td><small><?echo htmlspecialchars(str_replace(DOCROOT, '', $module['path'])) ?></small></td>
+					<td>
+                        <?echo htmlspecialchars($module['name_display']) ?>
+                     </td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
             <tfoot>
                 <tr id="modulesCountRow">
-                    <td colspan="5" class="text-center"><strong>Всего модулей: <?php echo count($modules_list); ?></strong></td>
+                    <td colspan="6" class="text-center"><strong>Всего модулей: <?php echo count($modules_list); ?></strong></td>
                 </tr>
             </tfoot>
         </table>
@@ -130,8 +118,6 @@
     const rows = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
     const countCell = document.querySelector('#modulesCountRow td');
     const totalModules = <?php echo count($modules_list); ?>;
-    const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
-    const checkUpdatesStatus = document.getElementById('checkUpdatesStatus');
 
     // ============ ФИЛЬТРЫ ============
     function updateVisibleCount() {
@@ -150,7 +136,8 @@
     function filterRows() {
         const hide = checkbox.checked;
         rows.forEach(row => {
-            const version = row.getAttribute('data-current-version');
+            const version = row.getAttribute('data-version');
+            // Скрываем модули ядра Kohana
             if (hide && version === 'Kohana') {
                 row.style.display = 'none';
             } else {
@@ -162,69 +149,8 @@
 
     if (checkbox) {
         checkbox.addEventListener('change', filterRows);
-        filterRows();
-    }
-
-    // ============ ПРОВЕРКА ОБНОВЛЕНИЙ ============
-    if (checkUpdatesBtn) {
-        checkUpdatesBtn.addEventListener('click', function() {
-            const btn = this;
-            const originalText = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = '<i class="glyphicon glyphicon-refresh glyphicon-spin"></i> Проверка...';
-            checkUpdatesStatus.innerHTML = '<span class="text-info">Идет проверка обновлений...</span>';
-            
-            fetch('<?= $check_updates_url ?>', {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json'
-                }
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Ошибка сети');
-                }
-                return response.json();
-            })
-            .then(data => {
-                rows.forEach(row => {
-                    const moduleName = row.getAttribute('data-module');
-                    const updateCell = row.querySelector('.update-cell');
-                    
-                    if (updateCell && data[moduleName]) {
-                        const info = data[moduleName];
-                        
-                        if (info.error) {
-                            updateCell.innerHTML = `<span class="label label-warning">${info.message}</span>`;
-                        } else if (info.latest_version) {
-                            const hasUpdate = info.has_update;
-                            let labelClass = hasUpdate ? 'label-danger' : 'label-success';
-                            let extraText = hasUpdate ? ' (есть обновление!)' : ' (актуально)';
-                            updateCell.innerHTML = `<span class="label ${labelClass}">${info.latest_version}${extraText}</span>`;
-                        } else {
-                            updateCell.innerHTML = '<span class="label label-default">Неизвестно</span>';
-                        }
-                    }
-                });
-                
-                // Обновляем кнопки обновления
-                addUpdateButtons();
-                
-                checkUpdatesStatus.innerHTML = '<span class="text-success">Проверка завершена</span>';
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-                
-                setTimeout(() => {
-                    checkUpdatesStatus.innerHTML = '';
-                }, 3000);
-            })
-            .catch(error => {
-                console.error('Ошибка при проверке обновлений:', error);
-                checkUpdatesStatus.innerHTML = '<span class="text-danger">Ошибка при проверке обновлений</span>';
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            });
-        });
+        // По умолчанию скрываем Kohana модули
+        setTimeout(filterRows, 100);
     }
 
     // ============ СОХРАНЕНИЕ CSV ============
@@ -250,7 +176,7 @@
                 text = text.replace(/"/g, '""');
                 rowData.push(`"${text}"`);
             });
-            csv.push(rowData.join(';')); // Исправлено: запятая вместо точки с запятой
+            csv.push(rowData.join(';'));
         });
         
         const blob = new Blob(['\uFEFF' + csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
@@ -277,101 +203,13 @@
         saveDiv.appendChild(button);
         
         const h4 = panelBody.querySelector('h4');
-        panelBody.insertBefore(saveDiv, h4);
-    }
-
-    // ============ УВЕДОМЛЕНИЯ ============
-    function showNotification(type, message) {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type} alert-dismissible fade in`;
-        alertDiv.style.position = 'fixed';
-        alertDiv.style.top = '20px';
-        alertDiv.style.right = '20px';
-        alertDiv.style.zIndex = '9999';
-        alertDiv.style.minWidth = '300px';
-        alertDiv.innerHTML = `
-            <button type="button" class="close" data-dismiss="alert">&times;</button>
-            <strong>${type === 'success' ? 'Успех!' : 'Ошибка!'}</strong> ${message}
-        `;
-        document.body.appendChild(alertDiv);
-        
-        setTimeout(() => {
-            alertDiv.remove();
-        }, 5000);
-    }
-
-    // ============ ОБНОВЛЕНИЕ МОДУЛЕЙ ============
-    function performUpdate(moduleName, btn) {
-        const originalText = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<i class="glyphicon glyphicon-refresh glyphicon-spin"></i> Установка...';
-        
-        fetch(`/about/install_update/${moduleName}`, {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showNotification('success', `Модуль ${moduleName} успешно обновлен!`);
-                setTimeout(() => {
-                    location.reload();
-                }, 2000);
-            } else {
-                showNotification('danger', `Ошибка: ${data.error}`);
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('danger', 'Произошла ошибка при обновлении');
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-        });
-    }
-
-    function confirmUpdate(moduleName, btn) {
-        if (confirm(`Обновить модуль "${moduleName}"?\n\nРекомендуется сделать резервную копию перед обновлением.`)) {
-            performUpdate(moduleName, btn);
+        const infoDiv = panelBody.querySelector('.alert');
+        if (infoDiv) {
+            panelBody.insertBefore(saveDiv, infoDiv.nextSibling);
+        } else {
+            panelBody.insertBefore(saveDiv, h4);
         }
     }
 
-    // ============ ДОБАВЛЕНИЕ КНОПОК ОБНОВЛЕНИЯ ============
-    function addUpdateButtons() {
-        rows.forEach(row => {
-            const moduleName = row.getAttribute('data-module');
-            const updateCell = row.querySelector('.update-cell');
-            
-            // Удаляем старые кнопки
-            const oldBtn = updateCell ? updateCell.querySelector('.update-module-btn') : null;
-            if (oldBtn) oldBtn.remove();
-            
-            if (updateCell) {
-                const statusSpan = updateCell.querySelector('span');
-                if (statusSpan && statusSpan.classList.contains('label-danger')) {
-                    const updateBtn = document.createElement('button');
-                    updateBtn.className = 'btn btn-xs btn-success update-module-btn';
-                    updateBtn.setAttribute('data-module', moduleName);
-                    updateBtn.innerHTML = '<i class="glyphicon glyphicon-download-alt"></i> Обновить';
-                    updateBtn.style.marginLeft = '10px';
-                    
-                    updateBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        confirmUpdate(moduleName, updateBtn);
-                    });
-                    
-                    updateCell.appendChild(updateBtn);
-                }
-            }
-        });
-    }
-
-    // Добавляем кнопки обновления после загрузки
-    setTimeout(addUpdateButtons, 500);
-
-})(); // КОНЕЦ IIFE
+})();
 </script>
