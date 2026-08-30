@@ -26,6 +26,11 @@
                     <?php endif; ?>
                 </td>
             </tr>
+			<tr>
+                <th>Пользователь:</th>
+                <td><?php echo htmlspecialchars($user_info['city_name']); ?></td>
+            </tr>
+			
         </table>
 
         <div class="alert alert-info" style="margin: 15px 0;">
@@ -79,9 +84,9 @@
                             <span class="label label-danger">Неактивен</span>
                         <?php endif; ?>
                     </td>
-                    <td><small><?echo htmlspecialchars(str_replace(DOCROOT, '', $module['path'])) ?></small></td>
+                    <td><small><?php echo htmlspecialchars(str_replace(DOCROOT, '', $module['path'])) ?></small></td>
 					<td>
-                        <?echo htmlspecialchars($module['name_display']) ?>
+                        <?php echo htmlspecialchars($module['name_display']) ?>
                      </td>
                 </tr>
                 <?php endforeach; ?>
@@ -112,32 +117,31 @@
 
 <script>
 (function() {
-    const checkbox = document.getElementById('hideKohana');
-    const table = document.getElementById('modulesTable');
-    const tbody = table.querySelector('tbody');
-    const rows = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
-    const countCell = document.querySelector('#modulesCountRow td');
-    const totalModules = <?php echo count($modules_list); ?>;
+    var checkbox = document.getElementById('hideKohana');
+    var table = document.getElementById('modulesTable');
+    var tbody = table.querySelector('tbody');
+    var rows = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
+    var countCell = document.querySelector('#modulesCountRow td');
+    var totalModules = <?php echo count($modules_list); ?>;
 
     // ============ ФИЛЬТРЫ ============
     function updateVisibleCount() {
         if (!countCell) return;
-        const visibleRows = rows.filter(row => {
+        var visibleRows = rows.filter(function(row) {
             return row.style.display !== 'none';
         });
-        const visibleCount = visibleRows.length;
+        var visibleCount = visibleRows.length;
         if (checkbox.checked) {
-            countCell.innerHTML = `<strong>Всего модулей: ${visibleCount} (из ${totalModules} скрыто ${totalModules - visibleCount})</strong>`;
+            countCell.innerHTML = '<strong>Всего модулей: ' + visibleCount + ' (из ' + totalModules + ' скрыто ' + (totalModules - visibleCount) + ')</strong>';
         } else {
-            countCell.innerHTML = `<strong>Всего модулей: ${totalModules}</strong>`;
+            countCell.innerHTML = '<strong>Всего модулей: ' + totalModules + '</strong>';
         }
     }
 
     function filterRows() {
-        const hide = checkbox.checked;
-        rows.forEach(row => {
-            const version = row.getAttribute('data-version');
-            // Скрываем модули ядра Kohana
+        var hide = checkbox.checked;
+        rows.forEach(function(row) {
+            var version = row.getAttribute('data-version');
             if (hide && version === 'Kohana') {
                 row.style.display = 'none';
             } else {
@@ -149,40 +153,70 @@
 
     if (checkbox) {
         checkbox.addEventListener('change', filterRows);
-        // По умолчанию скрываем Kohana модули
         setTimeout(filterRows, 100);
     }
 
     // ============ СОХРАНЕНИЕ CSV ============
     function saveTableAsCSV() {
-        const table = document.getElementById('modulesTable');
-        const allRows = table.querySelectorAll('tbody tr');
-        let csv = [];
+        var table = document.getElementById('modulesTable');
+        var allRows = table.querySelectorAll('tbody tr');
+        var csv = [];
         
-        // Заголовки
-        const headers = [];
-        table.querySelectorAll('thead th').forEach(th => {
+        // --- ПОЛУЧАЕМ ОБЪЕКТ ---
+        var objectElement = document.getElementById('objectNameData');
+        var objectName = objectElement ? objectElement.value : '<?php echo isset($user_info["city_name"]) ? addslashes(htmlspecialchars($user_info["city_name"])) : "Не указан"; ?>';
+        
+        // --- ТЕКУЩАЯ ДАТА ---
+        var currentDate = new Date();
+        var dateStr = currentDate.getFullYear() + '-' + 
+                      String(currentDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                      String(currentDate.getDate()).padStart(2, '0') + ' ' +
+                      String(currentDate.getHours()).padStart(2, '0') + ':' +
+                      String(currentDate.getMinutes()).padStart(2, '0');
+        
+        // --- ПЕРВАЯ СТРОКА: объект и дата ---
+        csv.push('Объект;Дата экспорта');
+        csv.push('"' + objectName + '";"' + dateStr + '"');
+        csv.push(''); // Пустая строка-разделитель
+        
+        // --- ЗАГОЛОВКИ ТАБЛИЦЫ ---
+        var headers = [];
+        table.querySelectorAll('thead th').forEach(function(th) {
             headers.push(th.textContent.trim());
         });
         csv.push(headers.join(';'));
         
-        // Данные
-        allRows.forEach(row => {
+        // --- ДАННЫЕ ТАБЛИЦЫ ---
+        allRows.forEach(function(row) {
             if (row.style.display === 'none') return;
-            const rowData = [];
-            row.querySelectorAll('td').forEach(td => {
-                let text = td.textContent.trim();
+            var rowData = [];
+            row.querySelectorAll('td').forEach(function(td) {
+                var text = td.textContent.trim();
                 text = text.replace(/\s+/g, ' ').trim();
                 text = text.replace(/"/g, '""');
-                rowData.push(`"${text}"`);
+                rowData.push('"' + text + '"');
             });
             csv.push(rowData.join(';'));
         });
         
-        const blob = new Blob(['\uFEFF' + csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
+        // --- ФОРМИРУЕМ ИМЯ ФАЙЛА С ОБЪЕКТОМ ---
+        // Очищаем имя объекта от спецсимволов для безопасного имени файла
+        var cleanObjectName = objectName.replace(/[^a-zA-Zа-яА-Я0-9\-_\s]/g, '').trim();
+        if (cleanObjectName === '') {
+            cleanObjectName = 'unknown';
+        }
+        
+        var dateForFilename = currentDate.getFullYear() + '-' + 
+                              String(currentDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                              String(currentDate.getDate()).padStart(2, '0');
+        
+        var filename = 'modules_list_' + cleanObjectName + '_' + dateForFilename + '.csv';
+        
+        // Создаем и скачиваем файл
+        var blob = new Blob(['\uFEFF' + csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        var link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `modules_list_${new Date().toISOString().slice(0,10)}.csv`;
+        link.download = filename;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -190,20 +224,20 @@
     }
 
     // ============ КНОПКА СОХРАНЕНИЯ ============
-    const panelBody = document.querySelector('.panel-body');
+    var panelBody = document.querySelector('.panel-body');
     if (panelBody) {
-        const saveDiv = document.createElement('div');
+        var saveDiv = document.createElement('div');
         saveDiv.style.cssText = 'margin: 15px 0;';
         
-        const button = document.createElement('button');
+        var button = document.createElement('button');
         button.className = 'btn btn-success';
         button.innerHTML = '<i class="glyphicon glyphicon-download-alt"></i> Сохранить CSV';
         button.onclick = saveTableAsCSV;
         
         saveDiv.appendChild(button);
         
-        const h4 = panelBody.querySelector('h4');
-        const infoDiv = panelBody.querySelector('.alert');
+        var h4 = panelBody.querySelector('h4');
+        var infoDiv = panelBody.querySelector('.alert');
         if (infoDiv) {
             panelBody.insertBefore(saveDiv, infoDiv.nextSibling);
         } else {

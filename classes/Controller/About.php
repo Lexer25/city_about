@@ -15,14 +15,11 @@ class Controller_About extends Controller_Template {
         $config = Kohana::$config->load('about');
         
         // Получаем информацию о разработчике
-        $developer_info = array(
-            'name' => 'Разработчик системы',
-            'company' => 'ООО "Артсек"',
-            'email' => 'support@artsec.ru',
-            'website_1' => 'http://artsec.ru',
-            'website_2' => 'http://artonit.ru'
-        );
-        
+      
+		
+		$developer_info=$config->developer;
+		$user_info=Kohana::$config->load('artonitcity_config');
+    
         // Получаем текущую версию
         $current_version = $this->get_current_version();
         
@@ -31,6 +28,7 @@ class Controller_About extends Controller_Template {
         
         $content = View::factory('about/index')
             ->set('developer', $developer_info)
+            ->set('user_info', $user_info)
             ->set('current_version', $current_version)
             ->set('modules_list', $modules_list);
             
