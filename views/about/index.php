@@ -1,4 +1,4 @@
-﻿﻿<div class="panel panel-primary">
+﻿<div class="panel panel-primary">
     <div class="panel-heading">
         <h3 class="panel-title">Информация о системе</h3>
     </div>
@@ -33,6 +33,13 @@
 			
         </table>
 
+        <?php if (isset($_GET['cache_cleared'])): ?>
+            <div class="alert alert-success" style="margin: 15px 0;">
+                <i class="glyphicon glyphicon-ok-sign"></i>
+                Кэш тегов очищен. Удалено файлов: <?php echo (int) $_GET['cache_cleared']; ?>
+            </div>
+        <?php endif; ?>
+
         <div class="alert alert-info" style="margin: 15px 0;">
             <i class="glyphicon glyphicon-info-sign"></i>
             Информация о модулях получена из локальных файлов системы.
@@ -52,6 +59,7 @@
                     <th>Модуль</th>
                     <th>Версия</th>
                     <th>Источник версии</th>
+                    <th>Тег на GitHub</th>
                     <th>Статус</th>
                     <th>Путь</th>
 					<th>Титул страницы</th>
@@ -78,6 +86,33 @@
                         <small><?= htmlspecialchars($module['version_source']) ?></small>
                     </td>
                     <td>
+                        <?php if (!empty($module['latest_tag'])): ?>
+                            <?php if (!empty($module['latest_tag_url'])): ?>
+                                <a href="<?= htmlspecialchars($module['latest_tag_url']) ?>" target="_blank">
+                                    <span class="label label-info"><?= htmlspecialchars($module['latest_tag']) ?></span>
+                                </a>
+                            <?php else: ?>
+                                <span class="label label-info"><?= htmlspecialchars($module['latest_tag']) ?></span>
+                            <?php endif; ?>
+                            <?php
+                                // Сравнение локальной версии с удалённым тегом
+                                if ($module['version'] !== 'Kohana' && $module['version'] !== 'Не определена') {
+                                    $local  = ltrim($module['version'], 'v');
+                                    $remote = ltrim($module['latest_tag'], 'v');
+                                    if (version_compare($remote, $local, '>')) {
+                                        echo ' <span class="label label-danger" title="Доступна новая версия">Обновление!</span>';
+                                    } elseif (version_compare($remote, $local, '==')) {
+                                        echo ' <span class="label label-success" title="Версии совпадают">Актуально</span>';
+                                    }
+                                }
+                            ?>
+                        <?php elseif (!empty($module['tag_error'])): ?>
+                            <small class="text-muted"><?= htmlspecialchars($module['tag_error']) ?></small>
+                        <?php else: ?>
+                            <small class="text-muted">—</small>
+                        <?php endif; ?>
+                    </td>
+                    <td>
                         <?php if ($module['is_active']): ?>
                             <span class="label label-success">Активен</span>
                         <?php else: ?>
@@ -93,7 +128,7 @@
             </tbody>
             <tfoot>
                 <tr id="modulesCountRow">
-                    <td colspan="6" class="text-center"><strong>Всего модулей: <?php echo count($modules_list); ?></strong></td>
+                    <td colspan="8" class="text-center"><strong>Всего модулей: <?php echo count($modules_list); ?></strong></td>
                 </tr>
             </tfoot>
         </table>
@@ -200,7 +235,6 @@
         });
         
         // --- ФОРМИРУЕМ ИМЯ ФАЙЛА С ОБЪЕКТОМ ---
-        // Очищаем имя объекта от спецсимволов для безопасного имени файла
         var cleanObjectName = objectName.replace(/[^a-zA-Zа-яА-Я0-9\-_\s]/g, '').trim();
         if (cleanObjectName === '') {
             cleanObjectName = 'unknown';
@@ -223,18 +257,30 @@
         URL.revokeObjectURL(link.href);
     }
 
-    // ============ КНОПКА СОХРАНЕНИЯ ============
+    // ============ КНОПКИ ============
     var panelBody = document.querySelector('.panel-body');
     if (panelBody) {
         var saveDiv = document.createElement('div');
         saveDiv.style.cssText = 'margin: 15px 0;';
         
+        // Кнопка "Сохранить CSV"
         var button = document.createElement('button');
         button.className = 'btn btn-success';
         button.innerHTML = '<i class="glyphicon glyphicon-download-alt"></i> Сохранить CSV';
         button.onclick = saveTableAsCSV;
-        
         saveDiv.appendChild(button);
+        
+        // Кнопка "Сбросить кэш тегов"
+        var clearBtn = document.createElement('button');
+        clearBtn.className = 'btn btn-warning';
+        clearBtn.style.marginLeft = '10px';
+        clearBtn.innerHTML = '<i class="glyphicon glyphicon-refresh"></i> Сбросить кэш тегов';
+        clearBtn.onclick = function() {
+            if (confirm('Очистить кэш тегов GitHub? При следующей загрузке данные будут запрошены заново.')) {
+                window.location.href = '/city/index.php/about/clear_tag_cache';
+            }
+        };
+        saveDiv.appendChild(clearBtn);
         
         var h4 = panelBody.querySelector('h4');
         var infoDiv = panelBody.querySelector('.alert');
