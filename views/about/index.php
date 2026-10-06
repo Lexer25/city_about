@@ -1,4 +1,4 @@
-﻿<div class="panel panel-primary">
+<div class="panel panel-primary">
     <div class="panel-heading">
         <h3 class="panel-title">Информация о системе</h3>
     </div>
@@ -58,7 +58,6 @@
                     <th style="width: 40px;">№</th>
                     <th>Модуль</th>
                     <th>Версия</th>
-                    <th>Источник версии</th>
                     <th>Тег на GitHub</th>
                     <th>Статус</th>
                     <th>Путь</th>
@@ -74,16 +73,15 @@
                         <?= htmlspecialchars($module['name']) ?>
                     </td>
                     <td>
-                        <?php if ($module['version_defined']): ?>
+                        <?php if (!$module['is_active']): ?>
+                            <span class="label label-default">Отключен</span>
+                        <?php elseif ($module['version_defined']): ?>
                             <span class="label label-primary"><?= htmlspecialchars($module['version']) ?></span>
                         <?php elseif ($module['version'] === 'Kohana'): ?>
                             <span class="label label-default">Kohana Core</span>
                         <?php else: ?>
                             <span class="label label-warning"><?= htmlspecialchars($module['version']) ?></span>
                         <?php endif; ?>
-                    </td>
-					<td>
-                        <small><?= htmlspecialchars($module['version_source']) ?></small>
                     </td>
                     <td>
                         <?php if (!empty($module['latest_tag'])): ?>
@@ -106,6 +104,8 @@
                                     }
                                 }
                             ?>
+                        <?php elseif (!$module['is_active']): ?>
+                            <small class="text-muted">Отключен</small>
                         <?php elseif (!empty($module['tag_error'])): ?>
                             <small class="text-muted"><?= htmlspecialchars($module['tag_error']) ?></small>
                         <?php else: ?>
@@ -116,7 +116,7 @@
                         <?php if ($module['is_active']): ?>
                             <span class="label label-success">Активен</span>
                         <?php else: ?>
-                            <span class="label label-danger">Неактивен</span>
+                            <span class="label label-default">Отключен</span>
                         <?php endif; ?>
                     </td>
                     <td><small><?php echo htmlspecialchars(str_replace(DOCROOT, '', $module['path'])) ?></small></td>
@@ -128,7 +128,7 @@
             </tbody>
             <tfoot>
                 <tr id="modulesCountRow">
-                    <td colspan="8" class="text-center"><strong>Всего модулей: <?php echo count($modules_list); ?></strong></td>
+                    <td colspan="7" class="text-center"><strong>Всего модулей: <?php echo count($modules_list); ?></strong></td>
                 </tr>
             </tfoot>
         </table>

@@ -1,6 +1,6 @@
 <?php
 // MODPATH/about/init.php
-defined('ABOUT_VERSION') OR define('ABOUT_VERSION', '1.0.9');
+defined('ABOUT_VERSION') OR define('ABOUT_VERSION', '1.0.11');
 
 // Добавляем маршрут для главной страницы модуля
 Route::set('about', 'about')

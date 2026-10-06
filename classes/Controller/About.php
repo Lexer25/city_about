@@ -70,7 +70,6 @@ class Controller_About extends Controller_Template {
     {
         $modules = array();
         $active_modules = Kohana::modules();
-        
         $modpath = rtrim(MODPATH, DIRECTORY_SEPARATOR);
         if (is_dir($modpath)) {
             $items = scandir($modpath);
@@ -87,23 +86,29 @@ class Controller_About extends Controller_Template {
                     $has_init = file_exists($init_file);
                     
                     $const_name = strtoupper($module_name) . '_VERSION';
+                    // Модуль отключён, если его нет в Kohana::modules() (application/bootstrap.php)
+                    $is_active = array_key_exists($module_name, $active_modules);
                     $version = defined($const_name) ? constant($const_name) : 'Не определена';
                     
-                    // Специальная обработка для модулей ядра Kohana
-                    $kohana_core_modules = array('auth', 'cache', 'codebench', 'database', 'image', 'minion', 'orm', 'unittest', 'userguide');
-                    if (in_array($module_name, $kohana_core_modules) && $version === 'Не определена') {
-                        $version = 'Kohana';
+                    if ($is_active) {
+                        // Специальная обработка для модулей ядра Kohana
+                        $kohana_core_modules = array('auth', 'cache', 'codebench', 'database', 'image', 'minion', 'orm', 'unittest', 'userguide');
+                        if (in_array($module_name, $kohana_core_modules) && $version === 'Не определена') {
+                            $version = 'Kohana';
+                        }
+                        
+                        // Альтернативные источники версии
+                        if ($has_init && $version === 'Не определена') {
+                            $version = $this->get_module_version_alternative($module_path);
+                        }
+                        
+                        // Последний тег с GitHub запрашиваем только для включённых модулей
+                        $github = $this->get_github_latest_tag($module_name);
+                    } else {
+                        // Отключённый модуль: версия не определяется, обращения к сети не нужны
+                        $version = 'Отключен';
+                        $github = array('tag' => null, 'url' => null, 'error' => null);
                     }
-                    
-                    // Альтернативные источники версии
-                    if ($has_init && $version === 'Не определена') {
-                        $version = $this->get_module_version_alternative($module_path);
-                    }
-                    
-                    $is_active = array_key_exists($module_name, $active_modules);
-                    
-                    // Получаем последний тег с GitHub
-                    $github = $this->get_github_latest_tag($module_name);
                     
                     $modules[$module_name] = array(
                         'name' => $module_name,
@@ -111,9 +116,8 @@ class Controller_About extends Controller_Template {
                         'version' => $version,
                         'path' => $module_path,
                         'is_active' => $is_active,
-                        'version_defined' => defined($const_name),
+                        'version_defined' => $is_active && defined($const_name),
                         'has_init' => $has_init,
-                        'version_source' => $this->get_version_source($module_path, $const_name, $version),
                         'latest_tag' => $github['tag'],
                         'latest_tag_url' => $github['url'],
                         'tag_error' => $github['error'],
@@ -210,30 +214,6 @@ class Controller_About extends Controller_Template {
         }
         
         return $result;
-    }
-    
-    /**
-     * Определить источник версии для отображения
-     */
-    private function get_version_source($module_path, $const_name, $version)
-    {
-        if (defined($const_name)) {
-            return 'Константа в init.php';
-        }
-        
-        if (file_exists($module_path . 'version.php')) {
-            return 'Файл version.php';
-        }
-        
-        if (file_exists($module_path . 'config/version.php')) {
-            return 'Файл config/version.php';
-        }
-        
-        if (file_exists($module_path . 'VERSION')) {
-            return 'Файл VERSION';
-        }
-        
-        return 'Не определен';
     }
     
     /**
